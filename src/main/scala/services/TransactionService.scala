@@ -1,3 +1,9 @@
+package services
+
+import repositories.*
+import models.*
+import utils.*
+
 def validateTransaction(value: Float, sourceAccountOption: Option[Account], destinationAccountOption: Option[Account],
             sourceBalanceOption: Option[Balance], destinationBalanceOption: Option[Balance]): Unit =
     sourceAccountOption.getOrElse(throw new RuntimeException("Source account not found"))
@@ -11,14 +17,15 @@ def validateTransaction(value: Float, sourceAccountOption: Option[Account], dest
 def processTransaction(transaction: Transaction): Unit = 
     val sourceAccountOption = AccountRepository.findById(transaction.sourceAccountId)
     val destinationAccountOption = AccountRepository.findById(transaction.destinationAccountId)
-    val sourceBalanceOption = BalanceRepository.findByAccountIdAndBalanceType(transaction.sourceAccountId, transaction.balanceType)
-    val destinationBalanceOption = BalanceRepository.findByAccountIdAndBalanceType(transaction.destinationAccountId, transaction.balanceType)
+    val balanceType = transaction.balanceType.convertToBalanceType
+    val sourceBalanceOption = BalanceRepository.findByAccountIdAndBalanceType(transaction.sourceAccountId, balanceType)
+    val destinationBalanceOption = BalanceRepository.findByAccountIdAndBalanceType(transaction.destinationAccountId, balanceType)
     
     validateTransaction(transaction.value, sourceAccountOption, destinationAccountOption, sourceBalanceOption, destinationBalanceOption)
     
-    BalanceRepository.update(new Balance(sourceBalanceOption.get.accountId, 
-                                        sourceBalanceOption.get.balanceType, 
-                                        sourceBalanceOption.get.value - transaction.value))
-    BalanceRepository.update(new Balance(destinationBalanceOption.get.accountId, 
-                                        destinationBalanceOption.get.balanceType, 
-                                        destinationBalanceOption.get.value + transaction.value))
+    val sourceBalance = sourceBalanceOption.get
+    val destinationBalance = destinationBalanceOption.get
+    sourceBalance.value = sourceBalance.value - transaction.value
+    destinationBalance.value = destinationBalance.value + transaction.value
+    BalanceRepository.update(sourceBalance)
+    BalanceRepository.update(destinationBalance)

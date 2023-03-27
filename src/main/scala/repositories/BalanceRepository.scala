@@ -1,4 +1,7 @@
+package repositories
+
 import scala.collection.mutable.ListBuffer
+import models.*
 
 object BalanceRepository:
     private var _balances: ListBuffer[Balance] = ListBuffer()
@@ -10,8 +13,7 @@ object BalanceRepository:
             return balance
         _balances.find(balance => balance.accountId == accountId && balance.balanceType == BalanceType.CASH)
         
-    def save(balance: Balance): Unit =
-        _balances += balance
+    def save(balance: Balance): Unit = _balances += balance
     
     def update(balanceToUpdate: Balance): Unit =
         _balances = _balances.filter(balance => !(balance.accountId == balanceToUpdate.accountId && 

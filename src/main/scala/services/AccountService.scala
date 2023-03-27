@@ -1,3 +1,7 @@
+package services
+
+import models.* 
+import repositories.*
 import java.util.UUID
 
 def createAccount(name: String): Account =
