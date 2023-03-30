@@ -3,20 +3,21 @@ package services
 import repositories.*
 import models.*
 import utils.*
+import dtos.CreateTransaction
 
 object TransactionService:
     private val CASH_TAX: Float = 0.12
 
-    private def validateTransaction(value: Float, sourceAccountOption: Option[Account], destinationAccountOption: Option[Account],
-                sourceBalanceOption: Option[Balance], destinationBalanceOption: Option[Balance]): Unit =
-        sourceAccountOption.getOrElse(throw new RuntimeException("Source account not found"))
-        destinationAccountOption.getOrElse(throw new RuntimeException("Destination account not found"))
-        destinationBalanceOption.getOrElse(throw new RuntimeException("Balance type not found"))
-        
-        val balance = sourceBalanceOption.getOrElse(throw new RuntimeException("Balance type not found"))
-        if balance.value < value then
-            throw new RuntimeException("Balance insufficent")
+    private val TRANSACTION_STATUS = Map(
+        "INSUFFICIENT_BALANCE" -> "Insufficient Balance",
+        "INVALID_DATA" -> "Invalid Data",
+        "OK" -> "OK"
+    )
 
+    private def validateTransaction(value: Float, sourceBalance: Balance): Option[String] =
+        if sourceBalance.value < value then
+            Some(TRANSACTION_STATUS("INSUFFICIENT_BALANCE"))
+        None
 
     private def createExecuteTransactionFunction(balanceType: BalanceType): (String, Float) => Unit =
         val tax = balanceType match
@@ -25,16 +26,34 @@ object TransactionService:
         
         (accountId, value) => AccountService.updateBalanceValue(accountId, balanceType, value + (value * tax))
         
-    def processTransaction(transaction: Transaction): Unit = 
-        val sourceAccountOption = AccountRepository.findById(transaction.sourceAccountId)
-        val destinationAccountOption = AccountRepository.findById(transaction.destinationAccountId)
-        val balanceType = transaction.balanceType.convertToBalanceType
-        val sourceBalanceOption = BalanceRepository.findByAccountIdAndBalanceType(transaction.sourceAccountId, balanceType)
-        val destinationBalanceOption = BalanceRepository.findByAccountIdAndBalanceType(transaction.destinationAccountId, balanceType)
+
+    private def findDatasToTransaction(transaction: CreateTransaction, balanceType: BalanceType): Option[(Account, Account, Balance, Balance)] =
+        val options = for
+            sourceAccountOption <- AccountRepository.findById(transaction.sourceAccountId)
+            destinationAccountOption <- AccountRepository.findById(transaction.destinationAccountId)
+            sourceBalanceOption <- BalanceRepository.findByAccountIdAndBalanceType(transaction.sourceAccountId, balanceType)
+            destinationBalanceOption <- BalanceRepository.findByAccountIdAndBalanceType(transaction.destinationAccountId, balanceType)
+        yield
+            (sourceAccountOption, destinationAccountOption, sourceBalanceOption, destinationBalanceOption)
         
-        validateTransaction(transaction.value, sourceAccountOption, destinationAccountOption, sourceBalanceOption, destinationBalanceOption)
+        options
+
+    def process(transaction: CreateTransaction): String = 
+        val balanceType = transaction.balanceType.convertToBalanceType
+        val options = findDatasToTransaction(transaction, balanceType)
+        
+        if options.isEmpty then
+            return TRANSACTION_STATUS("INVALID_DATA")
+        
+            
+        val (sourceAccount, destinationAccount, sourceBalance, destinationBalance) = options.get
+
+        validateTransaction(transaction.value, sourceBalance)
+        
         
         val executeTransactionFunction = createExecuteTransactionFunction(balanceType)
 
-        executeTransactionFunction(transaction.sourceAccountId, sourceBalanceOption.get.value - transaction.value)
-        executeTransactionFunction(transaction.destinationAccountId, destinationBalanceOption.get.value + transaction.value)
+        executeTransactionFunction(transaction.sourceAccountId, sourceBalance.value - transaction.value)
+        executeTransactionFunction(transaction.destinationAccountId, destinationBalance.value + transaction.value)
+
+        TRANSACTION_STATUS("OK")
