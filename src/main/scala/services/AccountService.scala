@@ -7,6 +7,8 @@ import java.util.UUID
 import dtos.GetAccount
 
 object AccountService:
+  private val INITIAL_BALANCE = 0
+
   def createAccount(createAccount: CreateAccount): Account =
     val account = new Account(UUID.randomUUID.toString(), createAccount.name)
     AccountRepository.save(account)
@@ -34,4 +36,4 @@ object AccountService:
     BalanceRepository.update(balance.updateValue(value))
 
   private def generateBalances(account: Account): Array[Balance] =
-    BalanceType.values.map(Balance(account.id, _, 0))
+    BalanceType.values.map(Balance(account.id, _, INITIAL_BALANCE))

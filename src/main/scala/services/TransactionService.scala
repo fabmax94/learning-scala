@@ -24,17 +24,25 @@ object TransactionService:
 
   private def createExecuteTransactionFunction(
       balanceType: BalanceType
-  ): (String, Float) => Unit =
+  ): (Balance, Balance, Float) => Unit =
     val tax = balanceType match
       case BalanceType.CASH => CASH_TAX
       case _                => 1
 
-    (accountId, value) =>
+    (sourceBalance: Balance, destinationBalance: Balance, value: Float) => {
+      val valueTax = value + (value * tax)
       AccountService.updateBalanceValue(
-        accountId,
+        sourceBalance.accountId,
         balanceType,
-        value + (value * tax)
+        sourceBalance.value - value
       )
+
+      AccountService.updateBalanceValue(
+        destinationBalance.accountId,
+        balanceType,
+        destinationBalance.value + value
+      )
+    }
 
   private def findDatasToTransaction(
       transaction: CreateTransaction,
@@ -86,12 +94,9 @@ object TransactionService:
           )
 
           executeTransactionFunction(
-            sourceAccount.id,
-            sourceBalance.value - value
-          )
-          executeTransactionFunction(
-            destinationAccount.id,
-            destinationBalance.value + value
+            sourceBalance,
+            destinationBalance,
+            value
           )
 
           TRANSACTION_STATUS("OK")

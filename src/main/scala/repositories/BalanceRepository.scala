@@ -2,34 +2,30 @@ package repositories
 
 import models.*
 
-object BalanceRepository:
-  private var _balances: List[Balance] = List()
+object BalanceRepository extends Repository[Balance]:
+
+  override def equal(entityA: Any, entityB: Any): Boolean =
+    val entityAInstance = entityA.asInstanceOf[(String, BalanceType)]
+    val entityBInstance = entityB.asInstanceOf[Balance]
+    entityAInstance(0) == entityBInstance.accountId && entityAInstance(
+      1
+    ) == entityBInstance.balanceType
 
   def findByAccountIdAndBalanceType(
       accountId: String,
       balanceType: BalanceType
   ): Option[Balance] =
-    val balance = _balances.find(balance =>
-      balance.accountId == accountId && balance.balanceType == balanceType
-    )
+    val balance =
+      entities.find(balance => equal(balance, (accountId, balanceType)))
 
     balance match
-      case Some => balance
+      case Some(value) => balance
       case _ =>
-        _balances.find(balance =>
+        entities.find(balance =>
           balance.accountId == accountId && balance.balanceType == BalanceType.CASH
         )
 
-  def save(balance: Balance): Unit = _balances = balance :: _balances
-
-  def update(balanceToUpdate: Balance): Unit =
-    _balances = _balances.filter(balance =>
-      !(balance.accountId == balanceToUpdate.accountId &&
-        balance.balanceType == balanceToUpdate.balanceType)
-    )
-    save(balanceToUpdate)
-
-  def findAll(): List[Balance] = _balances
+  def findAll(): List[Balance] = entities
 
   def findByAccountId(accountId: String): List[Balance] =
-    _balances.filter(_.accountId == accountId)
+    entities.filter(_.accountId == accountId)

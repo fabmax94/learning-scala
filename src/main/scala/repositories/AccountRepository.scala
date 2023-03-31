@@ -2,11 +2,13 @@ package repositories
 
 import models.Account
 
-object AccountRepository:
-  private var _accounts: List[Account] = List()
+object AccountRepository extends Repository[Account]:
 
-  def findById(id: String): Option[Account] = _accounts.find(_.id == id)
+  override def equal(entityA: Any, entityB: Any): Boolean =
+    val (entityAInstance, entityBInstance) =
+      (entityA.asInstanceOf[Account], entityB.asInstanceOf[Account])
+    entityAInstance.id == entityBInstance.id
 
-  def save(account: Account): Unit = _accounts = account :: _accounts
+  def findById(id: String): Option[Account] = entities.find(_.id == id)
 
-  def findAll(): List[Account] = _accounts
+  def findAll(): List[Account] = entities
